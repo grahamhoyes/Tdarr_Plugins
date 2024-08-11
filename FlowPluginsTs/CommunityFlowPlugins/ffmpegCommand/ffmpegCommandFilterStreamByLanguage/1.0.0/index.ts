@@ -89,7 +89,6 @@ const plugin = (args: IpluginInputArgs): IpluginOutputArgs => {
 
   // Map from stream type to streams
   const streamsToKeep: Map<string, IffmpegCommandStream[]> = new Map();
-  let doProcessing = false;
 
   streamTypeLanguageIndexes.forEach((langIndexes, streamType) => {
     // All the streams to keep for this stream type, in the preferred order
@@ -108,39 +107,45 @@ const plugin = (args: IpluginInputArgs): IpluginOutputArgs => {
       );
     } else {
       streamsToKeep.set(streamType, filteredStreams);
-      doProcessing = true;
     }
   });
 
-  if (doProcessing) {
-    // eslint-disable-next-line no-param-reassign
-    args.variables.ffmpegCommand.shouldProcess = true;
+  const outputStreams = Array.from(streamsToKeep)
+    .map(([, streams]) => streams)
+    .flat();
 
-    const outputStreams = Array.from(streamsToKeep)
-      .map(([, streams]) => streams)
-      .flat();
-    // eslint-disable-next-line no-param-reassign
-    args.variables.ffmpegCommand.streams = outputStreams;
-
-    // Set the first stream for each codec type as the default, clearing the rest
-    const seenStreamTypes: Set<string> = new Set();
-    const dispositionRemovalArgs: string[] = [];
-    const dispositionSetArgs: string[] = [];
-
-    outputStreams.forEach((stream, i) => {
-      if (seenStreamTypes.has(stream.codec_type)) {
-        dispositionRemovalArgs.push(`-disposition:${i}`, '0');
-      } else {
-        dispositionSetArgs.push(`-disposition:${i}`, 'default');
-        seenStreamTypes.add(stream.codec_type);
-      }
-    });
-
-    args.variables.ffmpegCommand.overallOuputArguments.push(
-      ...dispositionRemovalArgs,
-      ...dispositionSetArgs,
-    );
+  if (JSON.stringify(outputStreams) === JSON.stringify(originalStreams)) {
+    args.jobLog('No changes required');
+    return {
+      outputFileObj: args.inputFileObj,
+      outputNumber: 1,
+      variables: args.variables,
+    };
   }
+
+  // eslint-disable-next-line no-param-reassign
+  args.variables.ffmpegCommand.shouldProcess = true;
+  // eslint-disable-next-line no-param-reassign
+  args.variables.ffmpegCommand.streams = outputStreams;
+
+  // Set the first stream for each codec type as the default, clearing the rest
+  const seenStreamTypes: Set<string> = new Set();
+  const dispositionRemovalArgs: string[] = [];
+  const dispositionSetArgs: string[] = [];
+
+  outputStreams.forEach((stream, i) => {
+    if (seenStreamTypes.has(stream.codec_type)) {
+      dispositionRemovalArgs.push(`-disposition:${i}`, '0');
+    } else {
+      dispositionSetArgs.push(`-disposition:${i}`, 'default');
+      seenStreamTypes.add(stream.codec_type);
+    }
+  });
+
+  args.variables.ffmpegCommand.overallOuputArguments.push(
+    ...dispositionRemovalArgs,
+    ...dispositionSetArgs,
+  );
 
   return {
     outputFileObj: args.inputFileObj,

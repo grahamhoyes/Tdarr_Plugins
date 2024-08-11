@@ -77,7 +77,6 @@ var plugin = function (args) {
     });
     // Map from stream type to streams
     var streamsToKeep = new Map();
-    var doProcessing = false;
     streamTypeLanguageIndexes.forEach(function (langIndexes, streamType) {
         // All the streams to keep for this stream type, in the preferred order
         var filteredStreams = languages
@@ -90,35 +89,40 @@ var plugin = function (args) {
         }
         else {
             streamsToKeep.set(streamType, filteredStreams);
-            doProcessing = true;
         }
     });
-    if (doProcessing) {
-        // eslint-disable-next-line no-param-reassign
-        args.variables.ffmpegCommand.shouldProcess = true;
-        var outputStreams = Array.from(streamsToKeep)
-            .map(function (_a) {
-            var streams = _a[1];
-            return streams;
-        })
-            .flat();
-        // eslint-disable-next-line no-param-reassign
-        args.variables.ffmpegCommand.streams = outputStreams;
-        // Set the first stream for each codec type as the default, clearing the rest
-        var seenStreamTypes_1 = new Set();
-        var dispositionRemovalArgs_1 = [];
-        var dispositionSetArgs_1 = [];
-        outputStreams.forEach(function (stream, i) {
-            if (seenStreamTypes_1.has(stream.codec_type)) {
-                dispositionRemovalArgs_1.push("-disposition:".concat(i), '0');
-            }
-            else {
-                dispositionSetArgs_1.push("-disposition:".concat(i), 'default');
-                seenStreamTypes_1.add(stream.codec_type);
-            }
-        });
-        (_a = args.variables.ffmpegCommand.overallOuputArguments).push.apply(_a, __spreadArray(__spreadArray([], dispositionRemovalArgs_1, false), dispositionSetArgs_1, false));
+    var outputStreams = Array.from(streamsToKeep)
+        .map(function (_a) {
+        var streams = _a[1];
+        return streams;
+    })
+        .flat();
+    if (JSON.stringify(outputStreams) === JSON.stringify(originalStreams)) {
+        args.jobLog('No changes required');
+        return {
+            outputFileObj: args.inputFileObj,
+            outputNumber: 1,
+            variables: args.variables,
+        };
     }
+    // eslint-disable-next-line no-param-reassign
+    args.variables.ffmpegCommand.shouldProcess = true;
+    // eslint-disable-next-line no-param-reassign
+    args.variables.ffmpegCommand.streams = outputStreams;
+    // Set the first stream for each codec type as the default, clearing the rest
+    var seenStreamTypes = new Set();
+    var dispositionRemovalArgs = [];
+    var dispositionSetArgs = [];
+    outputStreams.forEach(function (stream, i) {
+        if (seenStreamTypes.has(stream.codec_type)) {
+            dispositionRemovalArgs.push("-disposition:".concat(i), '0');
+        }
+        else {
+            dispositionSetArgs.push("-disposition:".concat(i), 'default');
+            seenStreamTypes.add(stream.codec_type);
+        }
+    });
+    (_a = args.variables.ffmpegCommand.overallOuputArguments).push.apply(_a, __spreadArray(__spreadArray([], dispositionRemovalArgs, false), dispositionSetArgs, false));
     return {
         outputFileObj: args.inputFileObj,
         outputNumber: 1,
