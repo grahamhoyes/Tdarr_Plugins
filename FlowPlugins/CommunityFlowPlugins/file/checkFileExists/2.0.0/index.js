@@ -40,21 +40,21 @@ exports.plugin = exports.details = void 0;
 var fileUtils_1 = require("../../../../FlowHelpers/1.0.0/fileUtils");
 /* eslint no-plusplus: ["error", { "allowForLoopAfterthoughts": true }] */
 var details = function () { return ({
-    name: 'Switch to File',
-    description: 'Load a file as the current working file. Useful for switching to a pre-transcoded version mid-flow.',
+    name: 'Check File Exists',
+    description: 'Check file Exists',
     style: {
-        borderColor: 'green',
+        borderColor: 'orange',
     },
-    tags: '',
+    tags: 'video',
     isStartPlugin: false,
     pType: '',
     requiresVersion: '2.11.01',
     sidebarPosition: -1,
-    icon: '',
+    icon: 'faQuestion',
     inputs: [
         {
-            label: 'File To Load',
-            name: 'fileToLoad',
+            label: 'File To Check',
+            name: 'fileToCheck',
             type: 'string',
             // eslint-disable-next-line no-template-curly-in-string
             defaultValue: '${fileName}_720p.${container}',
@@ -72,7 +72,8 @@ var details = function () { return ({
             inputUI: {
                 type: 'directory',
             },
-            tooltip: 'Specify directory to check. Leave blank to use working directory.',
+            tooltip: 'Specify directory to check. Leave blank to use working directory.'
+                + ' Put below Input File plugin to check original file directory.',
         },
         {
             label: 'Use original file working directory',
@@ -88,14 +89,18 @@ var details = function () { return ({
     outputs: [
         {
             number: 1,
-            tooltip: 'Continue to next plugin',
+            tooltip: 'File exists',
+        },
+        {
+            number: 2,
+            tooltip: 'File does not exist',
         },
     ],
 }); };
 exports.details = details;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 var plugin = function (args) { return __awaiter(void 0, void 0, void 0, function () {
-    var lib, directory, fileName, fileToLoad;
+    var lib, directory, fileName, fileToCheck, fileDoesExist;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -109,24 +114,25 @@ var plugin = function (args) { return __awaiter(void 0, void 0, void 0, function
                     directory = String(args.inputs.directory).trim() || (0, fileUtils_1.getFileAbosluteDir)(args.inputFileObj._id);
                 }
                 fileName = (0, fileUtils_1.getFileName)(args.inputFileObj._id);
-                fileToLoad = String(args.inputs.fileToLoad).trim();
-                fileToLoad = fileToLoad.replace(/\${fileName}/g, fileName);
-                fileToLoad = fileToLoad.replace(/\${container}/g, (0, fileUtils_1.getContainer)(args.inputFileObj._id));
-                fileToLoad = "".concat(directory, "/").concat(fileToLoad);
-                return [4 /*yield*/, (0, fileUtils_1.fileExists)(fileToLoad)];
+                fileToCheck = String(args.inputs.fileToCheck).trim();
+                fileToCheck = fileToCheck.replace(/\${fileName}/g, fileName);
+                fileToCheck = fileToCheck.replace(/\${container}/g, (0, fileUtils_1.getContainer)(args.inputFileObj._id));
+                fileToCheck = "".concat(directory, "/").concat(fileToCheck);
+                fileDoesExist = false;
+                return [4 /*yield*/, (0, fileUtils_1.fileExists)(fileToCheck)];
             case 1:
                 if (_a.sent()) {
-                    args.jobLog("Loading file: ".concat(fileToLoad));
-                    return [2 /*return*/, {
-                            outputFileObj: {
-                                _id: fileToLoad,
-                            },
-                            outputNumber: 1,
-                            variables: args.variables,
-                        }];
+                    fileDoesExist = true;
+                    args.jobLog("File exists: ".concat(fileToCheck));
                 }
-                args.jobLog("File does not exist: ".concat(fileToLoad));
-                throw new Error('File does not exist');
+                else {
+                    args.jobLog("File does not exist: ".concat(fileToCheck));
+                }
+                return [2 /*return*/, {
+                        outputFileObj: args.inputFileObj,
+                        outputNumber: fileDoesExist ? 1 : 2,
+                        variables: args.variables,
+                    }];
         }
     });
 }); };

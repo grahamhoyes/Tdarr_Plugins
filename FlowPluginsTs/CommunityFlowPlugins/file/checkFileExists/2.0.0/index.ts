@@ -9,22 +9,21 @@ import {
 
 /* eslint no-plusplus: ["error", { "allowForLoopAfterthoughts": true }] */
 const details = (): IpluginDetails => ({
-  name: 'Switch to File',
-  description:
-    'Load a file as the current working file. Useful for switching to a pre-transcoded version mid-flow.',
+  name: 'Check File Exists',
+  description: 'Check file Exists',
   style: {
-    borderColor: 'green',
+    borderColor: 'orange',
   },
-  tags: '',
+  tags: 'video',
   isStartPlugin: false,
   pType: '',
   requiresVersion: '2.11.01',
   sidebarPosition: -1,
-  icon: '',
+  icon: 'faQuestion',
   inputs: [
     {
-      label: 'File To Load',
-      name: 'fileToLoad',
+      label: 'File To Check',
+      name: 'fileToCheck',
       type: 'string',
       // eslint-disable-next-line no-template-curly-in-string
       defaultValue: '${fileName}_720p.${container}',
@@ -42,7 +41,8 @@ const details = (): IpluginDetails => ({
       inputUI: {
         type: 'directory',
       },
-      tooltip: 'Specify directory to check. Leave blank to use working directory.',
+      tooltip: 'Specify directory to check. Leave blank to use working directory.'
+      + ' Put below Input File plugin to check original file directory.',
     },
     {
       label: 'Use original file working directory',
@@ -58,7 +58,11 @@ const details = (): IpluginDetails => ({
   outputs: [
     {
       number: 1,
-      tooltip: 'Continue to next plugin',
+      tooltip: 'File exists',
+    },
+    {
+      number: 2,
+      tooltip: 'File does not exist',
     },
   ],
 });
@@ -78,23 +82,26 @@ const plugin = async (args: IpluginInputArgs): Promise<IpluginOutputArgs> => {
 
   const fileName = getFileName(args.inputFileObj._id);
 
-  let fileToLoad = String(args.inputs.fileToLoad).trim();
-  fileToLoad = fileToLoad.replace(/\${fileName}/g, fileName);
-  fileToLoad = fileToLoad.replace(/\${container}/g, getContainer(args.inputFileObj._id));
-  fileToLoad = `${directory}/${fileToLoad}`;
+  let fileToCheck = String(args.inputs.fileToCheck).trim();
+  fileToCheck = fileToCheck.replace(/\${fileName}/g, fileName);
+  fileToCheck = fileToCheck.replace(/\${container}/g, getContainer(args.inputFileObj._id));
+  fileToCheck = `${directory}/${fileToCheck}`;
 
-  if (await fileExists(fileToLoad)) {
-    args.jobLog(`Loading file: ${fileToLoad}`);
-    return {
-      outputFileObj: {
-        _id: fileToLoad,
-      },
-      outputNumber: 1,
-      variables: args.variables,
-    };
+  let fileDoesExist = false;
+  if (await fileExists(fileToCheck)) {
+    fileDoesExist = true;
+    args.jobLog(`File exists: ${fileToCheck}`);
+  } else {
+    args.jobLog(`File does not exist: ${fileToCheck}`);
   }
 
-  args.jobLog(`File does not exist: ${fileToLoad}`);
-  throw new Error('File does not exist');
+  return {
+    outputFileObj: args.inputFileObj,
+    outputNumber: fileDoesExist ? 1 : 2,
+    variables: args.variables,
+  };
 };
-export { details, plugin };
+export {
+  details,
+  plugin,
+};
