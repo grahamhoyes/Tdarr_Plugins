@@ -58,61 +58,31 @@ const plugin = (args: IpluginInputArgs): IpluginOutputArgs => {
 
   const languages = (args.inputs.languages as string).split(',');
 
-  // A nested map to let us process the entire file in a single pass.
-  // The outer map is keyed by codec type (video, audio, etc.). The inner map is
-  // a map from language code to overall stream index.
-  // Later logic depends on the fact that map iteration is by insertion order,
-  // which is how stream types get inserted back in the original order (as long
-  // as they aren't interleaved).
-  const streamTypeLanguageIndexes: Map<
-    string,
-    Map<string, number[]>
-  > = new Map();
+  const streamsByType = new Map<string, IffmpegCommandStream[]>();
 
-  originalStreams.forEach((stream, i) => {
-    const streamType = stream.codec_type;
+  originalStreams.forEach((stream) => {
+    const { codec_type } = stream;
 
-    if (!streamTypeLanguageIndexes.has(streamType)) {
-      streamTypeLanguageIndexes.set(streamType, new Map());
+    if (!streamsByType.has(codec_type)) {
+      streamsByType.set(codec_type, []);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const languageIndexes = streamTypeLanguageIndexes.get(streamType)!;
-
-    const language = stream.tags?.language || 'und';
-    if (!languageIndexes.has(language)) {
-      languageIndexes.set(language, []);
-    }
-
-    languageIndexes.get(language)?.push(i);
+    streamsByType.get(codec_type)?.push(stream);
   });
 
-  // Map from stream type to streams
-  const streamsToKeep: Map<string, IffmpegCommandStream[]> = new Map();
+  const outputStreams: IffmpegCommandStream[] = [];
 
-  streamTypeLanguageIndexes.forEach((langIndexes, streamType) => {
-    // All the streams to keep for this stream type, in the preferred order
+  streamsByType.forEach((streams, type) => {
     const filteredStreams = languages
-      .map((lang) => (langIndexes.get(lang) || []).map((i) => originalStreams[i]))
-      .flat();
+      .flatMap((lang) => streams.filter((s) => (s.tags?.language || 'und') === lang));
 
-    if (filteredStreams.length === 0) {
-      // If no matching streams were found, keep the originals
-      streamsToKeep.set(
-        streamType,
-        originalStreams.filter((s) => s.codec_type === streamType),
-      );
-      args.jobLog(
-        `No matching streams were found for codec type ${streamType}, keeping the originals.`,
-      );
+    if (filteredStreams.length > 0) {
+      outputStreams.push(...filteredStreams);
     } else {
-      streamsToKeep.set(streamType, filteredStreams);
+      outputStreams.push(...streams);
+      args.jobLog(`No matching streams were found for codec type ${type}, keeping the originals.`);
     }
   });
-
-  const outputStreams = Array.from(streamsToKeep)
-    .map(([, streams]) => streams)
-    .flat();
 
   if (JSON.stringify(outputStreams) === JSON.stringify(originalStreams)) {
     args.jobLog('No changes required');
@@ -128,23 +98,21 @@ const plugin = (args: IpluginInputArgs): IpluginOutputArgs => {
   // eslint-disable-next-line no-param-reassign
   args.variables.ffmpegCommand.streams = outputStreams;
 
+  // Start by clearing the disposition for all streams
+  const dispositionArgs = outputStreams.flatMap((_, i) => [`-disposition:${i}`, '0']);
+
   // Set the first stream for each codec type as the default, clearing the rest
   const seenStreamTypes: Set<string> = new Set();
-  const dispositionRemovalArgs: string[] = [];
-  const dispositionSetArgs: string[] = [];
 
   outputStreams.forEach((stream, i) => {
-    if (seenStreamTypes.has(stream.codec_type)) {
-      dispositionRemovalArgs.push(`-disposition:${i}`, '0');
-    } else {
-      dispositionSetArgs.push(`-disposition:${i}`, 'default');
+    if (!seenStreamTypes.has(stream.codec_type)) {
+      dispositionArgs.push(`-disposition:${i}`, 'default');
       seenStreamTypes.add(stream.codec_type);
     }
   });
 
   args.variables.ffmpegCommand.overallOuputArguments.push(
-    ...dispositionRemovalArgs,
-    ...dispositionSetArgs,
+    ...dispositionArgs,
   );
 
   return {
