@@ -58,13 +58,24 @@ var plugin = function (args) {
     streamsByType.forEach(function (streams, type) {
         var filteredStreams = languages
             .flatMap(function (lang) { return streams.filter(function (s) { var _a; return (((_a = s.tags) === null || _a === void 0 ? void 0 : _a.language) || 'und') === lang; }); });
-        if (filteredStreams.length > 0) {
-            outputStreams.push.apply(outputStreams, filteredStreams);
-        }
-        else {
-            outputStreams.push.apply(outputStreams, streams);
+        if (filteredStreams.length === 0) {
+            filteredStreams = streams;
             args.jobLog("No matching streams were found for codec type ".concat(type, ", keeping the originals."));
         }
+        // Additional sorting for audio streams - deprioritize directors commentaries
+        if (type === 'audio') {
+            filteredStreams.sort(function (a, b) {
+                var _a, _b, _c, _d, _e, _f;
+                var aIsCommentary = (_c = (_b = (_a = a.tags) === null || _a === void 0 ? void 0 : _a.title) === null || _b === void 0 ? void 0 : _b.toLowerCase().includes('commentary')) !== null && _c !== void 0 ? _c : false;
+                var bIsCommentary = (_f = (_e = (_d = b.tags) === null || _d === void 0 ? void 0 : _d.title) === null || _e === void 0 ? void 0 : _e.toLowerCase().includes('commentary')) !== null && _f !== void 0 ? _f : false;
+                if (aIsCommentary === bIsCommentary)
+                    return 0;
+                if (aIsCommentary)
+                    return 1;
+                return -1;
+            });
+        }
+        outputStreams.push.apply(outputStreams, filteredStreams);
     });
     if (JSON.stringify(outputStreams) === JSON.stringify(originalStreams)) {
         args.jobLog('No changes required');

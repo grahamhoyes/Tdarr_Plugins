@@ -73,15 +73,26 @@ const plugin = (args: IpluginInputArgs): IpluginOutputArgs => {
   const outputStreams: IffmpegCommandStream[] = [];
 
   streamsByType.forEach((streams, type) => {
-    const filteredStreams = languages
+    let filteredStreams = languages
       .flatMap((lang) => streams.filter((s) => (s.tags?.language || 'und') === lang));
 
-    if (filteredStreams.length > 0) {
-      outputStreams.push(...filteredStreams);
-    } else {
-      outputStreams.push(...streams);
+    if (filteredStreams.length === 0) {
+      filteredStreams = streams;
       args.jobLog(`No matching streams were found for codec type ${type}, keeping the originals.`);
     }
+
+    // Additional sorting for audio streams - deprioritize directors commentaries
+    if (type === 'audio') {
+      filteredStreams.sort((a, b) => {
+        const aIsCommentary = a.tags?.title?.toLowerCase().includes('commentary') ?? false;
+        const bIsCommentary = b.tags?.title?.toLowerCase().includes('commentary') ?? false;
+        if (aIsCommentary === bIsCommentary) return 0;
+        if (aIsCommentary) return 1;
+        return -1;
+      });
+    }
+
+    outputStreams.push(...filteredStreams);
   });
 
   if (JSON.stringify(outputStreams) === JSON.stringify(originalStreams)) {
