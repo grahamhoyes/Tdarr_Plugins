@@ -50,11 +50,10 @@ const details = (): IpluginDetails => ({
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const plugin = async (args: IpluginInputArgs): Promise<IpluginOutputArgs> => {
-  const lib = require('../../../../../methods/lib')();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars,no-param-reassign
-  args.inputs = lib.loadDefaultValues(args.inputs, details);
+  // Note: This intentionally doesn't use lib.loadDefaultValues to avoid trimming
 
-  const suffix = String(args.inputs.suffix);
+  // Original input without getting trimmed / type converted
+  const suffix = String(args.inputs.suffix) || '';
 
   const fileName = getFileName(args.inputFileObj._id);
   const container = getContainer(args.inputFileObj._id);

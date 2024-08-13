@@ -81,14 +81,11 @@ var details = function () { return ({
 exports.details = details;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 var plugin = function (args) { return __awaiter(void 0, void 0, void 0, function () {
-    var lib, suffix, fileName, container, fileDir, addDelimiter, newName, newPath;
+    var suffix, fileName, container, fileDir, addDelimiter, newName, newPath;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                lib = require('../../../../../methods/lib')();
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars,no-param-reassign
-                args.inputs = lib.loadDefaultValues(args.inputs, details);
-                suffix = String(args.inputs.suffix);
+                suffix = String(args.inputs.suffix) || '';
                 fileName = (0, fileUtils_1.getFileName)(args.inputFileObj._id);
                 container = (0, fileUtils_1.getContainer)(args.inputFileObj._id);
                 fileDir = (0, fileUtils_1.getFileAbosluteDir)(args.inputFileObj._id);
