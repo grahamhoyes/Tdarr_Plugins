@@ -247,7 +247,10 @@ var plugin = function (args) { return __awaiter(void 0, void 0, void 0, function
                 encoderProperties = _d.sent();
                 stream.outputArgs.push('-c:{outputIndex}', encoderProperties.encoder);
                 if (ffmpegQualityEnabled) {
-                    if (encoderProperties.isGpu) {
+                    if (encoderProperties.isGpu && encoderProperties.encoder.includes('qsv')) {
+                        stream.outputArgs.push('-global_quality', ffmpegQuality);
+                    }
+                    else if (encoderProperties.isGpu) {
                         stream.outputArgs.push('-qp', ffmpegQuality);
                     }
                     else {
